@@ -183,7 +183,8 @@ def main():
             # The default for this really comes from the action plugin
             warn=dict(type='bool', default=True),
             stdin=dict(required=False),
-        )
+        ),
+        supports_check_mode=True,
     )
     shell = module.params['_uses_shell']
     chdir = module.params['chdir']
@@ -225,6 +226,15 @@ def main():
                 changed=False,
                 rc=0
             )
+        # if in check mode and the filename doesnt exist, report that a change
+        # would be made
+        elif module.check_mode:
+            module.exit_json(
+                cmd=args,
+                stdout="changed, since %s does not exist" % creates,
+                changed=True,
+                rc=0
+            )
 
     if removes:
         # do not run the command if the line contains removes=filename
@@ -237,9 +247,22 @@ def main():
                 changed=False,
                 rc=0
             )
+        # if in check mode and the filename exists, report that a change would
+        # be made
+        elif module.check_mode:
+            module.exit_json(
+                cmd=args,
+                stdout="changed, since %s exists" % removes,
+                changed=True,
+                rc=0
+            )
 
     if warn:
         check_command(module, args)
+
+    # skip if in check mode so no changes are made
+    if module.check_mode:
+        module.exit_json(msg="skipped, running in check mode", skipped=True)
 
     startd = datetime.datetime.now()
 
