@@ -260,13 +260,21 @@ def main():
     if warn:
         check_command(module, args)
 
-    # skip if in check mode so no changes are made
-    if module.check_mode:
-        module.exit_json(msg="skipped, running in check mode", skipped=True)
-
     startd = datetime.datetime.now()
 
-    rc, out, err = module.run_command(args, executable=executable, use_unsafe_shell=shell, encoding=None, data=stdin)
+    # skip if in check mode so no changes are made
+    if module.check_mode:
+        rc, changed, err = (0, False, None)
+        if creates and glob.glob(creates):
+            out = "skipped, since %s exists" % creates
+        elif removes and not glob.glob(removes):
+            out = "skipped, since %s does not exist" % removes
+        else:
+            out = "skipped, running in check mode"
+            changed = True
+    else:
+        rc, out, err = module.run_command(args, executable=executable, use_unsafe_shell=shell, encoding=None, data=stdin)
+        changed = True
 
     endd = datetime.datetime.now()
     delta = endd - startd
@@ -279,7 +287,8 @@ def main():
         start=str(startd),
         end=str(endd),
         delta=str(delta),
-        changed=True,
+        changed=changed,
+        skipped=not changed,
     )
 
     if rc != 0:
